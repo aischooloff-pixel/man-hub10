@@ -220,6 +220,9 @@ export type Database = {
           is_premium: boolean | null
           last_name: string | null
           reputation: number | null
+          show_avatar: boolean
+          show_name: boolean
+          show_username: boolean
           telegram_channel: string | null
           telegram_id: number | null
           updated_at: string | null
@@ -235,6 +238,9 @@ export type Database = {
           is_premium?: boolean | null
           last_name?: string | null
           reputation?: number | null
+          show_avatar?: boolean
+          show_name?: boolean
+          show_username?: boolean
           telegram_channel?: string | null
           telegram_id?: number | null
           updated_at?: string | null
@@ -250,6 +256,9 @@ export type Database = {
           is_premium?: boolean | null
           last_name?: string | null
           reputation?: number | null
+          show_avatar?: boolean
+          show_name?: boolean
+          show_username?: boolean
           telegram_channel?: string | null
           telegram_id?: number | null
           updated_at?: string | null
