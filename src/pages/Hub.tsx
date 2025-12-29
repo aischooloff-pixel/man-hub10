@@ -4,27 +4,31 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { CategoryList } from '@/components/categories/CategoryList';
 import { ArticleListCard } from '@/components/articles/ArticleListCard';
 import { CreateArticleModal } from '@/components/articles/CreateArticleModal';
+import { EditArticleModal } from '@/components/articles/EditArticleModal';
 import { UserArticlesModal } from '@/components/profile/UserArticlesModal';
 import { AllArticlesModal } from '@/components/articles/AllArticlesModal';
+import { ArticleDetailModal } from '@/components/articles/ArticleDetailModal';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, ChevronRight, FileText } from 'lucide-react';
 import { mockCategories } from '@/data/mockData';
-import { Category } from '@/types';
-import { useArticles, Article } from '@/hooks/use-articles';
+import { Category, Article } from '@/types';
+import { useArticles, Article as HookArticle } from '@/hooks/use-articles';
 import { useProfile } from '@/hooks/use-profile';
+import { toast } from 'sonner';
 
 export default function Hub() {
-  const { getApprovedArticles, getUserArticles } = useArticles();
+  const { getApprovedArticles, getUserArticles, updateArticle, deleteArticle } = useArticles();
   const { profile, isAdmin } = useProfile();
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isMyArticlesOpen, setIsMyArticlesOpen] = useState(false);
   const [isAllArticlesOpen, setIsAllArticlesOpen] = useState(false);
-  const [expandedArticleId, setExpandedArticleId] = useState<string | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
 
-  const [allArticles, setAllArticles] = useState<Article[]>([]);
-  const [myArticles, setMyArticles] = useState<Article[]>([]);
+  const [allArticles, setAllArticles] = useState<HookArticle[]>([]);
+  const [myArticles, setMyArticles] = useState<HookArticle[]>([]);
   const [loadingAll, setLoadingAll] = useState(true);
   const [loadingMy, setLoadingMy] = useState(true);
 
@@ -54,15 +58,8 @@ export default function Hub() {
     ? allArticles.filter((a) => a.category_id === selectedCategory.id)
     : allArticles;
 
-  const handleArticleClick = (articleId: string) => {
-    setExpandedArticleId(expandedArticleId === articleId ? null : articleId);
-  };
-
-  // Helper to apply privacy settings (admins see original data)
-  const getAuthorDisplay = (author: Article['author']) => {
+  const getAuthorDisplay = (author: HookArticle['author']) => {
     if (!author) return undefined;
-    
-    // Admins see original data regardless of privacy settings
     if (isAdmin) {
       return {
         id: author.id,
@@ -74,30 +71,24 @@ export default function Hub() {
         reputation: author.reputation || 0,
         articles_count: 0,
         is_premium: author.is_premium || false,
-        created_at: '',
+        created_at: author.created_at || '',
       };
     }
-    
-    // Regular users see privacy-filtered data
     return {
       id: author.id,
       telegram_id: 0,
       username: author.show_username !== false ? author.username || '' : '',
       first_name: author.show_name !== false ? author.first_name || '' : 'Аноним',
       last_name: author.show_name !== false ? author.last_name || undefined : undefined,
-      avatar_url:
-        author.show_avatar !== false
-          ? author.avatar_url || undefined
-          : `https://api.dicebear.com/7.x/shapes/svg?seed=${author.id}`,
+      avatar_url: author.show_avatar !== false ? author.avatar_url || undefined : `https://api.dicebear.com/7.x/shapes/svg?seed=${author.id}`,
       reputation: author.reputation || 0,
       articles_count: 0,
       is_premium: author.is_premium || false,
-      created_at: '',
+      created_at: author.created_at || '',
     };
   };
 
-  // Map Article to the format expected by components
-  const mapArticle = (article: Article) => ({
+  const mapArticle = (article: HookArticle): Article => ({
     id: article.id,
     author_id: article.author_id || '',
     author: (article.is_anonymous && !isAdmin) ? undefined : getAuthorDisplay(article.author),
@@ -116,14 +107,31 @@ export default function Hub() {
     favorites_count: article.favorites_count || 0,
     rep_score: article.rep_score || 0,
     allow_comments: article.allow_comments !== false,
+    sources: article.sources || undefined,
     created_at: article.created_at || '',
     updated_at: article.updated_at || '',
   });
 
   const handleArticleCreated = async () => {
-    // Refresh my articles after creation
     const data = await getUserArticles();
     setMyArticles(data);
+  };
+
+  const handleEditArticle = async (articleId: string, updates: any) => {
+    const success = await updateArticle(articleId, updates);
+    if (success) {
+      const data = await getUserArticles();
+      setMyArticles(data);
+    }
+    return success;
+  };
+
+  const handleDeleteArticle = async (articleId: string) => {
+    const success = await deleteArticle(articleId);
+    if (success) {
+      const data = await getUserArticles();
+      setMyArticles(data);
+    }
   };
 
   if (profile?.is_blocked) {
@@ -134,8 +142,7 @@ export default function Hub() {
             <span className="text-4xl">🚫</span>
           </div>
           <h1 className="text-2xl font-bold text-destructive mb-4">Аккаунт заблокирован</h1>
-          <p className="text-muted-foreground mb-2">Вы не можете использовать BoysHub.</p>
-          <p className="text-sm text-muted-foreground">Если вы считаете, что это ошибка, обратитесь в поддержку.</p>
+          <p className="text-muted-foreground">Вы не можете использовать BoysHub.</p>
         </div>
       </div>
     );
@@ -144,9 +151,7 @@ export default function Hub() {
   return (
     <div className="min-h-screen bg-background pb-24 pt-16">
       <Header />
-
       <main className="py-6">
-        {/* Page Title */}
         <section className="mb-6 flex items-center justify-between px-4">
           <h1 className="font-heading text-2xl font-bold">Хаб</h1>
           <Button onClick={() => setIsCreateModalOpen(true)} className="gap-2">
@@ -155,93 +160,52 @@ export default function Hub() {
           </Button>
         </section>
 
-        {/* Categories */}
-        <CategoryList
-          categories={mockCategories}
-          selectedId={selectedCategory?.id}
-          onSelect={setSelectedCategory}
-          className="mb-6"
-        />
+        <CategoryList categories={mockCategories} selectedId={selectedCategory?.id} onSelect={setSelectedCategory} className="mb-6" />
 
-        {/* All Articles Section */}
         <section className="mb-6 px-4">
           <div className="rounded-2xl bg-card p-4">
             <h2 className="mb-4 font-heading text-lg font-semibold">Статьи</h2>
             {loadingAll ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
-                ))}
-              </div>
+              <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>
             ) : (
               <div className="space-y-3">
-                {filteredArticles.length > 0 ? (
-                  filteredArticles.slice(0, 5).map((article, index) => (
-                    <ArticleListCard
-                      key={article.id}
-                      article={mapArticle(article)}
-                      className="animate-slide-up"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                      onClick={() => handleArticleClick(article.id)}
-                      isExpanded={expandedArticleId === article.id}
-                    />
-                  ))
-                ) : (
-                  <p className="py-8 text-center text-muted-foreground">Нет статей в этой категории</p>
-                )}
+                {filteredArticles.length > 0 ? filteredArticles.slice(0, 5).map((article) => (
+                  <ArticleListCard key={article.id} article={mapArticle(article)} onClick={() => setSelectedArticle(mapArticle(article))} />
+                )) : <p className="py-8 text-center text-muted-foreground">Нет статей</p>}
               </div>
             )}
-
-            {/* Show all button */}
             {filteredArticles.length > 5 && (
               <Button variant="outline" className="mt-4 w-full gap-2" onClick={() => setIsAllArticlesOpen(true)}>
-                Смотреть все
-                <ChevronRight className="h-4 w-4" />
+                Смотреть все <ChevronRight className="h-4 w-4" />
               </Button>
             )}
           </div>
         </section>
 
-        {/* My Articles Section */}
         <section className="px-4">
           <div className="rounded-2xl bg-card p-4">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-heading text-lg font-semibold">Мои статьи</h2>
               {myArticles.length > 0 && (
                 <Button variant="ghost" size="sm" className="gap-1" onClick={() => setIsMyArticlesOpen(true)}>
-                  Все
-                  <ChevronRight className="h-4 w-4" />
+                  Все <ChevronRight className="h-4 w-4" />
                 </Button>
               )}
             </div>
-
             {loadingMy ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
-                ))}
-              </div>
+              <div className="space-y-3">{[1,2].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</div>
             ) : myArticles.length === 0 ? (
               <div className="py-8 text-center">
                 <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
                 <p className="text-muted-foreground">Вы ничего не написали</p>
                 <Button variant="outline" className="mt-4 gap-2" onClick={() => setIsCreateModalOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Написать статью
+                  <Plus className="h-4 w-4" /> Написать статью
                 </Button>
               </div>
             ) : (
               <div className="space-y-3">
-                {myArticles.slice(0, 3).map((article, index) => (
-                  <ArticleListCard
-                    key={article.id}
-                    article={mapArticle(article)}
-                    showStatus
-                    className="animate-slide-up"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                    onClick={() => handleArticleClick(article.id)}
-                    isExpanded={expandedArticleId === article.id}
-                  />
+                {myArticles.slice(0, 3).map((article) => (
+                  <ArticleListCard key={article.id} article={mapArticle(article)} showStatus onClick={() => setSelectedArticle(mapArticle(article))} />
                 ))}
               </div>
             )}
@@ -251,22 +215,18 @@ export default function Hub() {
 
       <BottomNav />
 
-      <CreateArticleModal
-        isOpen={isCreateModalOpen}
-        onClose={() => {
-          setIsCreateModalOpen(false);
-          handleArticleCreated();
-        }}
+      <CreateArticleModal isOpen={isCreateModalOpen} onClose={() => { setIsCreateModalOpen(false); handleArticleCreated(); }} />
+      <EditArticleModal isOpen={!!editingArticle} onClose={() => setEditingArticle(null)} article={editingArticle} onSave={handleEditArticle} />
+      <UserArticlesModal
+        isOpen={isMyArticlesOpen}
+        onClose={() => setIsMyArticlesOpen(false)}
+        articles={myArticles.map(mapArticle)}
+        onArticleClick={(a) => { setIsMyArticlesOpen(false); setSelectedArticle(a); }}
+        onEditClick={(a) => { setIsMyArticlesOpen(false); setEditingArticle(a); }}
+        onDeleteClick={handleDeleteArticle}
       />
-
-      <UserArticlesModal isOpen={isMyArticlesOpen} onClose={() => setIsMyArticlesOpen(false)} articles={myArticles.map(mapArticle)} />
-
-      <AllArticlesModal
-        isOpen={isAllArticlesOpen}
-        onClose={() => setIsAllArticlesOpen(false)}
-        articles={filteredArticles.map(mapArticle)}
-        title={selectedCategory ? `Статьи: ${selectedCategory.name}` : 'Все статьи'}
-      />
+      <AllArticlesModal isOpen={isAllArticlesOpen} onClose={() => setIsAllArticlesOpen(false)} articles={filteredArticles.map(mapArticle)} title={selectedCategory ? `Статьи: ${selectedCategory.name}` : 'Все статьи'} />
+      <ArticleDetailModal isOpen={!!selectedArticle} onClose={() => setSelectedArticle(null)} article={selectedArticle} />
     </div>
   );
 }

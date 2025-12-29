@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,41 +10,20 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { mockCategories } from '@/data/mockData';
 import { Send, Image, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { useArticles } from '@/hooks/use-articles';
+import { Article } from '@/types';
 
-interface CreateArticleModalProps {
+interface EditArticleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  article: Article | null;
+  onSave: (articleId: string, updates: any) => Promise<boolean>;
 }
 
-// Extract video thumbnail from various platforms
-function extractVideoThumbnail(url: string): string | null {
-  // YouTube
-  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  if (ytMatch) {
-    return `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
-  }
-  
-  // Vimeo - would need API call, return null for now
-  // TikTok, Instagram, etc. - complex, return null
-  return null;
-}
-
-export function CreateArticleModal({ isOpen, onClose, onSuccess }: CreateArticleModalProps) {
-  const { createArticle, loading } = useArticles();
+export function EditArticleModal({ isOpen, onClose, article, onSave }: EditArticleModalProps) {
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    category_id: '',
     title: '',
     topic: '',
     body: '',
@@ -53,8 +32,21 @@ export function CreateArticleModal({ isOpen, onClose, onSuccess }: CreateArticle
     sources: '',
   });
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<'image' | 'youtube' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (article) {
+      setFormData({
+        title: article.title || '',
+        topic: (article as any).topic || '',
+        body: article.body || '',
+        media_url: article.media_url || '',
+        is_anonymous: article.is_anonymous || false,
+        sources: article.sources?.join(', ') || '',
+      });
+      setMediaPreview(article.media_url || null);
+    }
+  }, [article]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,33 +63,14 @@ export function CreateArticleModal({ isOpen, onClose, onSuccess }: CreateArticle
       reader.onloadend = () => {
         const base64 = reader.result as string;
         setMediaPreview(base64);
-        setMediaType('image');
         setFormData({ ...formData, media_url: base64 });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleMediaUrlChange = (url: string) => {
-    const thumbnail = extractVideoThumbnail(url);
-    if (thumbnail) {
-      setMediaPreview(thumbnail);
-      setMediaType('youtube');
-      // Extract YouTube ID
-      const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-      setFormData({ ...formData, media_url: ytMatch ? ytMatch[1] : url });
-    } else if (url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-      setMediaPreview(url);
-      setMediaType('image');
-      setFormData({ ...formData, media_url: url });
-    } else {
-      setFormData({ ...formData, media_url: url });
-    }
-  };
-
   const clearMedia = () => {
     setMediaPreview(null);
-    setMediaType(null);
     setFormData({ ...formData, media_url: '' });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -117,63 +90,32 @@ export function CreateArticleModal({ isOpen, onClose, onSuccess }: CreateArticle
       return;
     }
 
-    const article = await createArticle({
-      category_id: formData.category_id,
+    if (!article) return;
+
+    setLoading(true);
+    const success = await onSave(article.id, {
       title: formData.title.trim(),
+      topic: formData.topic.trim() || undefined,
       body: formData.body.trim(),
-      media_url: formData.media_url.trim() || undefined,
-      media_type: mediaType || undefined,
+      media_url: formData.media_url || undefined,
       is_anonymous: formData.is_anonymous,
-      allow_comments: true,
+      sources: formData.sources ? formData.sources.split(',').map(s => s.trim()).filter(Boolean) : undefined,
     });
 
-    if (article) {
+    if (success) {
       onClose();
-      onSuccess?.();
-      setFormData({
-        category_id: '',
-        title: '',
-        topic: '',
-        body: '',
-        media_url: '',
-        is_anonymous: false,
-        sources: '',
-      });
-      setMediaPreview(null);
-      setMediaType(null);
     }
+    setLoading(false);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-heading text-xl">Новая статья</DialogTitle>
+          <DialogTitle className="font-heading text-xl">Редактировать статью</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Category */}
-          <div className="space-y-2">
-            <Label>Категория</Label>
-            <Select
-              value={formData.category_id}
-              onValueChange={(value) =>
-                setFormData({ ...formData, category_id: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите категорию" />
-              </SelectTrigger>
-              <SelectContent>
-                {mockCategories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Title */}
           <div className="space-y-2">
             <Label>Заголовок *</Label>
@@ -278,6 +220,10 @@ export function CreateArticleModal({ isOpen, onClose, onSuccess }: CreateArticle
               />
             </div>
           </div>
+
+          <p className="text-xs text-muted-foreground text-center">
+            После редактирования статья будет отправлена на повторную модерацию
+          </p>
 
           {/* Submit */}
           <Button type="submit" className="w-full gap-2" disabled={loading}>
