@@ -41,6 +41,38 @@ async function sendTelegramMessage(chatId: string | number, text: string, option
   return response.json();
 }
 
+async function sendTelegramPhoto(chatId: string | number, photoBase64: string, caption: string, options: any = {}) {
+  const url = `https://api.telegram.org/bot${ADMIN_BOT_TOKEN}/sendPhoto`;
+  
+  // Extract base64 data and mime type
+  const matches = photoBase64.match(/^data:(.+);base64,(.+)$/);
+  if (!matches) {
+    console.error('Invalid base64 format');
+    return { ok: false, error: 'Invalid base64 format' };
+  }
+  
+  const base64Data = matches[2];
+  const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+  
+  // Create form data
+  const formData = new FormData();
+  formData.append('chat_id', String(chatId));
+  formData.append('photo', new Blob([binaryData], { type: 'image/jpeg' }), 'photo.jpg');
+  formData.append('caption', caption);
+  formData.append('parse_mode', 'HTML');
+  
+  if (options.reply_markup) {
+    formData.append('reply_markup', JSON.stringify(options.reply_markup));
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  });
+  
+  return response.json();
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -70,13 +102,17 @@ Deno.serve(async (req) => {
 
     const authorData = article.author as any;
 
-    // Determine media display - don't send full base64, just indicate presence
+    // Determine media info
+    const isBase64Image = article.media_url?.startsWith('data:');
+    const isYouTube = article.media_type === 'youtube';
+    const youtubeUrl = isYouTube ? `https://youtube.com/watch?v=${article.media_url}` : null;
+
     let mediaDisplay = '';
     if (article.media_url) {
-      if (article.media_url.startsWith('data:')) {
-        mediaDisplay = '🖼 <b>Медиа:</b> Изображение (загружено)';
-      } else if (article.media_type === 'youtube') {
-        mediaDisplay = `🎬 <b>Медиа:</b> YouTube видео`;
+      if (isBase64Image) {
+        mediaDisplay = '🖼 <b>Медиа:</b> Изображение (см. выше)';
+      } else if (isYouTube) {
+        mediaDisplay = `🎬 <b>Медиа:</b> <a href="${youtubeUrl}">YouTube видео</a>`;
       } else {
         mediaDisplay = `🖼 <b>Медиа:</b> ${article.media_url.substring(0, 50)}...`;
       }
@@ -102,9 +138,18 @@ ${mediaDisplay}`;
       ],
     };
 
-    const result = await sendTelegramMessage(TELEGRAM_ADMIN_CHAT_ID, message, {
-      reply_markup: keyboard,
-    });
+    let result;
+    
+    // If base64 image, send as photo first
+    if (isBase64Image) {
+      result = await sendTelegramPhoto(TELEGRAM_ADMIN_CHAT_ID, article.media_url, message, {
+        reply_markup: keyboard,
+      });
+    } else {
+      result = await sendTelegramMessage(TELEGRAM_ADMIN_CHAT_ID, message, {
+        reply_markup: keyboard,
+      });
+    }
 
     console.log('Telegram API response:', result);
 
