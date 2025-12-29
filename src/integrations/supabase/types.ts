@@ -46,18 +46,22 @@ export type Database = {
           category_id: string | null
           comments_count: number | null
           created_at: string | null
+          edited_at: string | null
           favorites_count: number | null
           id: string
           is_anonymous: boolean | null
           likes_count: number | null
           media_type: string | null
           media_url: string | null
+          pending_edit: Json | null
           preview: string | null
           rejection_reason: string | null
           rep_score: number | null
+          sources: string[] | null
           status: string | null
           telegram_message_id: number | null
           title: string
+          topic: string | null
           updated_at: string | null
         }
         Insert: {
@@ -67,18 +71,22 @@ export type Database = {
           category_id?: string | null
           comments_count?: number | null
           created_at?: string | null
+          edited_at?: string | null
           favorites_count?: number | null
           id?: string
           is_anonymous?: boolean | null
           likes_count?: number | null
           media_type?: string | null
           media_url?: string | null
+          pending_edit?: Json | null
           preview?: string | null
           rejection_reason?: string | null
           rep_score?: number | null
+          sources?: string[] | null
           status?: string | null
           telegram_message_id?: number | null
           title: string
+          topic?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -88,18 +96,22 @@ export type Database = {
           category_id?: string | null
           comments_count?: number | null
           created_at?: string | null
+          edited_at?: string | null
           favorites_count?: number | null
           id?: string
           is_anonymous?: boolean | null
           likes_count?: number | null
           media_type?: string | null
           media_url?: string | null
+          pending_edit?: Json | null
           preview?: string | null
           rejection_reason?: string | null
           rep_score?: number | null
+          sources?: string[] | null
           status?: string | null
           telegram_message_id?: number | null
           title?: string
+          topic?: string | null
           updated_at?: string | null
         }
         Relationships: [

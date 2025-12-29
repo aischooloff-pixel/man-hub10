@@ -7,6 +7,7 @@ export interface Article {
   author_id: string | null;
   category_id: string | null;
   title: string;
+  topic?: string | null;
   preview: string | null;
   body: string;
   media_url: string | null;
@@ -19,6 +20,8 @@ export interface Article {
   favorites_count: number | null;
   rep_score: number | null;
   allow_comments: boolean | null;
+  sources?: string[] | null;
+  pending_edit?: any | null;
   created_at: string | null;
   updated_at: string | null;
   author?: {
@@ -32,6 +35,7 @@ export interface Article {
     show_avatar?: boolean | null;
     show_name?: boolean | null;
     show_username?: boolean | null;
+    created_at?: string | null;
   } | null;
 }
 
@@ -39,6 +43,7 @@ export interface CreateArticleData {
   category_id: string;
   title: string;
   body: string;
+  topic?: string;
   preview?: string;
   media_url?: string;
   media_type?: 'image' | 'youtube';
@@ -77,7 +82,7 @@ export function useArticles() {
         .from('articles')
         .select(`
           *,
-          author:author_id(id, first_name, last_name, username, avatar_url, is_premium, reputation, show_avatar, show_name, show_username)
+          author:author_id(id, first_name, last_name, username, avatar_url, is_premium, reputation, show_avatar, show_name, show_username, created_at)
         `)
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
@@ -156,10 +161,64 @@ export function useArticles() {
     }
   }, []);
 
-  // Update article (placeholder - implement if needed)
+  // Update article via backend function
   const updateArticle = useCallback(async (articleId: string, updates: Partial<CreateArticleData>) => {
-    toast.error('Редактирование статей пока недоступно');
-    return false;
+    const initData = getInitData();
+    if (!initData) {
+      toast.error('Необходимо авторизоваться через Telegram');
+      return false;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('tg-update-article', {
+        body: { initData, articleId, updates },
+      });
+
+      if (error) {
+        const msg = await extractEdgeErrorMessage(error);
+        throw new Error(msg);
+      }
+
+      toast.success('Редактирование отправлено на модерацию');
+      return true;
+    } catch (err: any) {
+      console.error('Error updating article:', err);
+      toast.error(err?.message || 'Ошибка редактирования статьи');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Delete article via backend function
+  const deleteArticle = useCallback(async (articleId: string) => {
+    const initData = getInitData();
+    if (!initData) {
+      toast.error('Необходимо авторизоваться через Telegram');
+      return false;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('tg-delete-article', {
+        body: { initData, articleId },
+      });
+
+      if (error) {
+        const msg = await extractEdgeErrorMessage(error);
+        throw new Error(msg);
+      }
+
+      toast.success('Статья удалена');
+      return true;
+    } catch (err: any) {
+      console.error('Error deleting article:', err);
+      toast.error(err?.message || 'Ошибка удаления статьи');
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   return {
@@ -168,5 +227,6 @@ export function useArticles() {
     getUserArticles,
     createArticle,
     updateArticle,
+    deleteArticle,
   };
 }
