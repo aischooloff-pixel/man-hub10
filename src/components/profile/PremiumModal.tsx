@@ -207,15 +207,15 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
                 </div>
 
                 <Button
-                  onClick={() => plan.id === 'free' ? null : (plan.id === 'plus' || plan.id === 'premium') ? null : handlePayment(plan.id)}
+                  onClick={() => plan.id === 'plus' ? handlePayment(plan.id) : null}
                   className={cn(
                     'w-full',
                     plan.id === 'free' ? 'variant-secondary' : ''
                   )}
                   variant={plan.id === 'free' ? 'secondary' : 'default'}
-                  disabled={plan.id === 'plus' || plan.id === 'premium'}
+                  disabled={plan.id === 'free' || plan.id === 'premium'}
                 >
-                  {plan.id === 'free' ? 'Текущий план' : 'Скоро'}
+                  {plan.id === 'free' ? 'Текущий план' : plan.id === 'plus' ? 'Выбрать' : 'Скоро'}
                 </Button>
               </div>
             ))}
@@ -280,12 +280,12 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
                   </div>
 
                   <Button
-                    onClick={() => plan.id === 'free' ? null : null}
+                    onClick={() => plan.id === 'plus' ? handlePayment(plan.id) : null}
                     className="w-full"
                     variant={plan.id === 'free' ? 'secondary' : 'default'}
-                    disabled={plan.id === 'plus' || plan.id === 'premium'}
+                    disabled={plan.id === 'free' || plan.id === 'premium'}
                   >
-                    {plan.id === 'free' ? 'Текущий план' : 'Скоро'}
+                    {plan.id === 'free' ? 'Текущий план' : plan.id === 'plus' ? 'Выбрать' : 'Скоро'}
                   </Button>
                 </div>
               ))}

@@ -61,12 +61,12 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
   };
 
   const handleHelpClick = () => {
+    onClose();
     setIsSupportOpen(true);
   };
 
   const handleModalClose = (setter: (v: boolean) => void) => {
     setter(false);
-    onClose();
   };
 
   const menuItems = [
