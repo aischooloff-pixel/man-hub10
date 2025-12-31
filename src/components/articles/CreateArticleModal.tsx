@@ -166,7 +166,7 @@ export function CreateArticleModal({ isOpen, onClose, onSuccess, onDailyLimitRea
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[150]">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">Новая статья</DialogTitle>
         </DialogHeader>
