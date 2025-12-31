@@ -415,6 +415,35 @@ export type Database = {
           },
         ]
       }
+      pending_product_rejections: {
+        Row: {
+          admin_telegram_id: number
+          created_at: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          admin_telegram_id: number
+          created_at?: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          admin_telegram_id?: number
+          created_at?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_product_rejections_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "user_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_rejections: {
         Row: {
           admin_telegram_id: number

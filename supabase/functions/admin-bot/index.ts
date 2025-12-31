@@ -3077,7 +3077,6 @@ async function handleEditReject(callbackQuery: any, shortId: string) {
 // ==================== PRODUCT MODERATION ====================
 
 const PRODUCTS_PER_PAGE = 10;
-const pendingProductRejections: Map<number, string> = new Map();
 
 // Handle /product command
 async function handleProducts(chatId: number, userId: number, page: number = 0, messageId?: number) {
@@ -3252,8 +3251,19 @@ async function handleProductRejectStart(callbackQuery: any, productId: string) {
     return;
   }
 
-  // Store pending rejection
-  pendingProductRejections.set(from.id, productId);
+  // Clean up old pending rejections for this admin
+  await supabase
+    .from('pending_product_rejections')
+    .delete()
+    .eq('admin_telegram_id', from.id);
+
+  // Store pending rejection in database
+  await supabase
+    .from('pending_product_rejections')
+    .insert({
+      product_id: productId,
+      admin_telegram_id: from.id,
+    });
 
   await answerCallbackQuery(id);
   await editMessageReplyMarkup(message.chat.id, message.message_id);
@@ -3265,10 +3275,24 @@ async function handleProductRejectStart(callbackQuery: any, productId: string) {
 
 // Handle product rejection reason
 async function handleProductRejectionReason(chatId: number, userId: number, text: string): Promise<boolean> {
-  const productId = pendingProductRejections.get(userId);
-  if (!productId) return false;
+  // Check database for pending rejection
+  const { data: pending, error: pendingError } = await supabase
+    .from('pending_product_rejections')
+    .select('product_id')
+    .eq('admin_telegram_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  pendingProductRejections.delete(userId);
+  if (pendingError || !pending) return false;
+
+  const productId = pending.product_id;
+
+  // Delete pending rejection
+  await supabase
+    .from('pending_product_rejections')
+    .delete()
+    .eq('admin_telegram_id', userId);
 
   const { data: product, error: fetchError } = await supabase
     .from('user_products')

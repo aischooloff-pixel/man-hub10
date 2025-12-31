@@ -573,19 +573,10 @@ export function PublicProfileModal({ isOpen, onClose, authorId }: PublicProfileM
                               <span className="font-bold text-xl text-primary">
                                 {product.price.toLocaleString()} {product.currency === 'RUB' ? '₽' : product.currency === 'USD' ? '$' : '€'}
                               </span>
-                              {product.link ? (
-                                <a
-                                  href={product.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                                >
-                                  <ShoppingBag className="h-4 w-4" />
-                                  Купить
-                                </a>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Свяжитесь с автором</span>
-                              )}
+                              <Button className="flex items-center gap-2">
+                                <ShoppingBag className="h-4 w-4" />
+                                Купить
+                              </Button>
                             </div>
                           </div>
                         </DialogContent>
